@@ -10,6 +10,7 @@
 namespace Yeskn\MainBundle\Repository;
 
 use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Yeskn\MainBundle\Entity\Post;
 use Yeskn\MainBundle\Entity\Tab;
 
@@ -19,40 +20,61 @@ class PostRepository extends EntityRepository
     /**
      * @param Tab $tab
      * @param $sort
-     * @param $pageSize
-     * @param $first
+     * @param $page [$pageNo, $pageSize]
      * @return Post[]
      */
-    public function getIndexList($tab, $sort, $pageSize, $first)
+    public function getIndexList($tab, $sort, array $page)
     {
-        $qb = $this->createQueryBuilder('p');
+        list($pageNo, $pageSize) = $page;
 
-        if ($tab) {
-            $qb->where('p.tab = :tab')->setParameter('tab', $tab);
+        $cursor =  $pageSize * ($pageNo - 1);
 
-            if ($tab->getLevel() == 1) {
-                $subQuery = $this->getEntityManager()->getRepository('YesknMainBundle:Tab')
-                    ->createQueryBuilder('t')
-                    ->select('t.id')
-                    ->where('t.parent = :parent')
-                    ->andWhere('t.level = 2')
-                    ->setParameter('parent', $tab)
-                    ->getQuery()
-                    ->getArrayResult()
-                ;
+        $qb = $this->createQueryPostBuilder($tab);
 
-                if ($subQuery) {
-                    $qb->orWhere($qb->expr()->in('p.tab', array_column($subQuery, 'id')));
-                }
-            }
+        $total = $qb->select('count(p)')->getQuery()->getSingleScalarResult();
+
+        $qb->select('p')->orderBy('p.isTop', 'desc');
+
+        foreach ($sort as $key => $order) {
+            $qb->addOrderBy('p.' . $key, $order);
         }
 
-        $qb->orderBy('p.isTop', 'DESC');
-        $qb->addOrderBy('p.'.key($sort), current($sort));
-        $qb->setFirstResult($first);
-        $qb->setMaxResults($pageSize);
-        return $qb->getQuery()->getResult();
+        $qb->setFirstResult($cursor)->setMaxResults($pageSize);
+
+        return [$total, $qb->getQuery()->getResult()];
     }
+
+    /**
+     * @param Tab|null $tab
+     * @return QueryBuilder
+     * @throws \InvalidArgumentException
+     */
+    private function createQueryPostBuilder($tab)
+    {
+        $em = $this->_em;
+        $qb = $this->createQueryBuilder('p')->where('p.isDeleted = false');
+
+        if ($tab) {
+            $tabCond = $qb->expr()->orX();
+            $tabCond->add($qb->expr()->eq('p.tab', $tab->getId()));
+
+            if ($tab->getLevel() == 1) {
+                $subQuery =  $em->createQueryBuilder()
+                    ->select('t')
+                    ->from('YesknMainBundle:Tab', 't')
+                    ->where('t.parent = :parent')
+                    ->andWhere('t.level = 2')
+                    ->getDQL();
+                $tabCond->add($qb->expr()->in('p.tab', $subQuery));
+                $qb->setParameter('parent', $tab);
+            }
+
+            $qb->andWhere($tabCond);
+        }
+
+        return $qb;
+    }
+
     /**
      * @return Post[]
      */

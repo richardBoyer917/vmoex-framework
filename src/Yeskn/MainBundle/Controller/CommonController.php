@@ -9,12 +9,11 @@
 
 namespace Yeskn\MainBundle\Controller;
 
-use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 use Symfony\Component\HttpFoundation\Cookie;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Yeskn\Support\AbstractController;
 
-class CommonController extends Controller
+class CommonController extends AbstractController
 {
     public function homeListAction(Request $request)
     {
@@ -45,47 +44,21 @@ class CommonController extends Controller
 
         $tabObj = null;
 
-        if ($tab and $tab != 'all' and $tab != 'hot') {
+        if ($tab && !in_array($tab, ['hot', 'all'])) {
             $tabObj = $this->getDoctrine()->getRepository('YesknMainBundle:Tab')
                 ->findOneBy(['alias' => $tab]);
             if (empty($tabObj)) {
-                return new JsonResponse('tab not exists');
+                return $this->errorResponse('嘤嘤嘤，板块不存在呢~');
             }
         }
 
-        $posts = $this->getDoctrine()->getRepository('YesknMainBundle:Post')
-            ->getIndexList($tabObj, $sort, $pagesize, $pagesize*($page-1));
-
-        $countQuery = $this->getDoctrine()->getRepository('YesknMainBundle:Post')
-            ->createQueryBuilder('a')
-            ->select('COUNT(a)')
-            ->where('a.isDeleted = false');
-
-        if (!empty($tabObj)) {
-            if ($tabObj->getLevel() == 1) {
-                $subItems = $this->get('doctrine.orm.entity_manager')->getRepository('YesknMainBundle:Tab')
-                    ->createQueryBuilder('t')
-                    ->select('t.id')
-                    ->where('t.parent = :parent')
-                    ->andWhere('t.level = 2')
-                    ->setParameter('parent', $tab)
-                    ->getQuery()
-                    ->getArrayResult();
-
-                $subIds = array_column($subItems, 'id') + [$tabObj->getId()];
-
-                $countQuery->orWhere($countQuery->expr()->in('a.tab', $subIds));
-            } else {
-                $countQuery->andWhere('a.tab = :tab')->setParameter('tab', $tab);
-            }
-        }
-
-        $count = $countQuery->getQuery()->getSingleScalarResult();
+        list($count, $posts) = $this->getDoctrine()->getRepository('YesknMainBundle:Post')
+            ->getIndexList($tabObj, $sort, [$page, $pagesize]);
 
         $allTabs = $this->getDoctrine()->getRepository('YesknMainBundle:Tab')
             ->findBy(['level' => 1]);
 
-        $pageData['allPage'] = ceil($count/$pagesize);
+        $pageData['allPage'] = ceil($count / $pagesize);
         $pageData['currentPage'] = $page;
 
         $params = [
