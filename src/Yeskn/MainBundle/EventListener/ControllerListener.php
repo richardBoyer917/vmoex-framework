@@ -9,21 +9,27 @@
 
 namespace Yeskn\MainBundle\EventListener;
 
-use Yeskn\MainBundle\Entity\User;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\SecurityBundle\Security\FirewallMap;
+use Symfony\Component\HttpKernel\Event\FilterControllerEvent;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Yeskn\Support\AbstractControllerListener;
 
 class ControllerListener extends AbstractControllerListener
 {
     static $increasedTodayActive = false;
 
-    public function onKernelController()
-    {
-        /** @var User $user */
-        $user = $this->getUser();
+    private $firewallMap;
 
-        if ($user && self::$increasedTodayActive == false) {
-            self::$increasedTodayActive = true;
-            $this->em->getRepository('YesknMainBundle:Active')->increaseTodayActive($user);
-        }
+    public function __construct(TokenStorageInterface $tokenStorage
+        , EntityManagerInterface $em
+        , FirewallMap $firewallMap
+    ) {
+        parent::__construct($tokenStorage, $em);
+        $this->firewallMap = $firewallMap;
+    }
+
+    public function onKernelController(FilterControllerEvent $event)
+    {
     }
 }

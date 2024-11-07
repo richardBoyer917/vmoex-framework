@@ -14,6 +14,7 @@ use Symfony\Component\Translation\Translator;
 use Symfony\Component\Translation\TranslatorInterface;
 use Twig\Extension\AbstractExtension;
 use Yeskn\MainBundle\Entity\User;
+use Twig;
 
 class GlobalValue extends AbstractExtension
 {
@@ -54,7 +55,8 @@ class GlobalValue extends AbstractExtension
         RouterInterface $router,
         TokenStorageInterface $tokenStorage,
         $socketHost
-    ) {
+    )
+    {
         $this->em = $em;
         $this->translator = $translator;
         $this->router = $router;
@@ -71,7 +73,7 @@ class GlobalValue extends AbstractExtension
     public function signed(User $user)
     {
         try {
-            $res =  (int) $this->em->getRepository('YesknMainBundle:Sign')
+            $res = (int)$this->em->getRepository('YesknMainBundle:Sign')
                 ->createQueryBuilder('p')
                 ->select('COUNT(p)')
                 ->where('p.user = :user')->setParameter('user', $user)
@@ -79,12 +81,21 @@ class GlobalValue extends AbstractExtension
                 ->getQuery()
                 ->getSingleScalarResult();
 
-         return (bool) $res;
+            return (bool)$res;
         } catch (NoResultException $exception) {
             return false;
         } catch (NonUniqueResultException $exception) {
             return true;
         }
+    }
+
+    public function ellipsis($string, $length)
+    {
+        if (mb_strlen($string) > $length) {
+            return mb_substr($string, 0, $length) . '...';
+        }
+
+        return $string;
     }
 
     public function ago(\DateTime $dateTime)
@@ -103,17 +114,17 @@ class GlobalValue extends AbstractExtension
         $day = $day ?: $this->translator->trans('day');
 
         if ($diff < 60) {
-            return (intval($diff) ?: 1).$second.$ago;
-        } else if ($diff <= 60*60){
-            $m = intval($diff/60);
-            $s = intval($diff%60);
-            return $m. $minute . ($s ? $s. $second : '') . $ago;
-        } else if ($diff <= 24*60*60){
-            $h = intval($diff/(60*60));
-            $m = intval(($diff - $h*(60*60))/60);
+            return (intval($diff) ?: 1) . $second . $ago;
+        } else if ($diff <= 60 * 60) {
+            $m = intval($diff / 60);
+            $s = intval($diff % 60);
+            return $m . $minute . ($s ? $s . $second : '') . $ago;
+        } else if ($diff <= 24 * 60 * 60) {
+            $h = intval($diff / (60 * 60));
+            $m = intval(($diff - $h * (60 * 60)) / 60);
             return $h . $hour . ($m ? $m . $minute : '') . $ago;
         } else {
-            $d = intval($diff/(24*60*60));
+            $d = intval($diff / (24 * 60 * 60));
             return $d . $day . $ago;
         }
     }
@@ -166,8 +177,6 @@ class GlobalValue extends AbstractExtension
 
     /**
      * @return array
-     * @throws NoResultException
-     * @throws NonUniqueResultException
      */
     public function siteState()
     {
@@ -175,7 +184,6 @@ class GlobalValue extends AbstractExtension
 
         if (empty($site)) {
             $site = [
-                'startedAt' => new \DateTime('2018-05-25'),
                 'topicCount' => $this->em->getRepository('YesknMainBundle:Post')->countPost(),
                 'userCount' => $this->em->getRepository('YesknMainBundle:User')->countUser(),
                 'commentCount' => $this->em->getRepository('YesknMainBundle:Comment')->countComment(),
@@ -204,7 +212,7 @@ class GlobalValue extends AbstractExtension
         if ($user instanceof UserInterface) {
             $userParam = [
                 'username' => $user->getUsername(),
-                'socketToken'=> ''
+                'socketToken' => ''
             ];
 
             $noticeCount = $this->em->getRepository('YesknMainBundle:Notice')->getUnreadCount($user->getId());
@@ -265,7 +273,7 @@ class GlobalValue extends AbstractExtension
                 'identifier' => 'wangEditor' // 插件提供的构造函数
             ],
             'landLord' => [
-                'scripts'=> ['/assets/lib/live2d/js/live2d.js', '/assets/lib/live2d/js/message.js'],
+                'scripts' => ['/assets/lib/live2d/js/live2d.js', '/assets/lib/live2d/js/message.js'],
                 'links' => ['/assets/lib/live2d/css/live2d.css'],
                 'identifier' => null,
             ],
@@ -275,31 +283,63 @@ class GlobalValue extends AbstractExtension
                     '/assets/lib/jquery.atwho/dist/js/jquery.atwho.min.js'
                 ],
                 'links' => ['/assets/lib/jquery.atwho/dist/css/jquery.atwho.min.css'],
-                'identifier'=> null
-            ]
+                'identifier' => null
+            ],
+            'laydate' => [
+                'scripts' => [
+                    '/assets/lib/laydate/dist/laydate.js'
+                ],
+                'identifier' => 'laydate'
+            ],
         ]);
+    }
+
+    public function tabsWidget()
+    {
+        static $tabs = [];
+
+        if (empty($tabs)) {
+            $tabs = $this->em->getRepository('YesknMainBundle:Tab')->getTabsForWidget();
+        }
+
+        return $tabs;
+    }
+
+    public function adsWidget()
+    {
+        static $ads = [];
+
+        if (empty($ads)) {
+            $ads = $this->em->getRepository('YesknMainBundle:Advertisement')
+                ->findBy(['enable' => true]);
+        }
+
+        return $ads;
     }
 
     public function getFilters()
     {
-        return array(
-            new \Twig_SimpleFilter('signed', array($this,'signed')),
-            new \Twig_SimpleFilter('ago', array($this,'ago')),
-        );
+        return [
+            new Twig\TwigFilter('signed', [$this, 'signed']),
+            new Twig\TwigFilter('ago', [$this, 'ago']),
+            new Twig\TwigFilter('ellipsis', [$this, 'ellipsis'])
+        ];
     }
 
     public function getFunctions()
     {
-        return array(
-            new \Twig_SimpleFunction('hotPosts',array($this,'hotPosts'),array('needs_environment' => true, 'is_safe' => 'html')),
-            new \Twig_SimpleFunction('hotTags',array($this,'hotTags'),array('needs_environment' => true, 'is_safe' => 'html')),
-            new \Twig_SimpleFunction('hotComments',array($this,'hotComments'),array('needs_environment' => true, 'is_safe' => 'html')),
-            new \Twig_SimpleFunction('unReadMessages',array($this,'unReadMessages'),array('needs_environment' => true, 'is_safe' => 'html')),
-            new \Twig_SimpleFunction('hotUsers',array($this,'hotUsers'),array('needs_environment' => true, 'is_safe' => 'html')),
-            new \Twig_SimpleFunction('onlineUserCount',array($this,'onlineUserCount'),array('needs_environment' => true, 'is_safe' => 'html')),
-            new \Twig_SimpleFunction('siteState',array($this,'siteState'),array('needs_environment' => true, 'is_safe' => 'html')),
-            new \Twig_SimpleFunction('javascriptVariables',array($this,'javascriptVariables')),
-            new \Twig_SimpleFunction('javascriptPlugins',array($this,'javascriptPlugins')),
-        );
+        return [
+            new Twig\TwigFunction('hotPosts', [$this, 'hotPosts', ['needs_environment' => true, 'is_safe' => 'html']]),
+            new Twig\TwigFunction('hotTags', [$this, 'hotTags', ['needs_environment' => true, 'is_safe' => 'html']]),
+            new Twig\TwigFunction('hotComments', [$this, 'hotComments', ['needs_environment' => true, 'is_safe' => 'html']]),
+            new Twig\TwigFunction('unReadMessages', [$this, 'unReadMessages', ['needs_environment' => true, 'is_safe' => 'html']]),
+            new Twig\TwigFunction('hotUsers', [$this, 'hotUsers', ['needs_environment' => true, 'is_safe' => 'html']]),
+            new Twig\TwigFunction('onlineUserCount', [$this, 'onlineUserCount', ['needs_environment' => true, 'is_safe' => 'html']]),
+            new Twig\TwigFunction('siteState', [$this, 'siteState', ['needs_environment' => true, 'is_safe' => 'html']]),
+            new Twig\TwigFunction('javascriptVariables', [$this, 'javascriptVariables']),
+            new Twig\TwigFunction('javascriptPlugins', [$this, 'javascriptPlugins']),
+            new Twig\TwigFunction('tabsWidget', [$this, 'tabsWidget']),
+            new Twig\TwigFunction('adsWidget', [$this, 'adsWidget']),
+        ];
     }
 }

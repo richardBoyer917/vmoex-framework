@@ -42,15 +42,16 @@ class DefaultQueryBuilder
             foreach ($params as $key => $param) {
                 if (in_array($key, $this->reservedKeys)) {
                     $reservedParams[$key] = $param;
+                    unset($params[$key]);
                 }
             }
         }
 
-        $params = array_diff($params, $reservedParams);
-
         foreach ($params as $key => $param) {
-            $this->queryBuilder->andWhere(sprintf('p.%s = :%s', $key, $key))
-                ->setParameter($key, $param);
+            if (!empty($param)) {
+                $this->queryBuilder->andWhere(sprintf('p.%s = :%s', $key, $key))
+                    ->setParameter($key, $param);
+            }
         }
 
         $this->reservedQuery($reservedParams);
@@ -75,7 +76,7 @@ class DefaultQueryBuilder
             $queryBuilder->setFirstResult(($params['pageNo'] - 1) * $params['pageSize']);
         }
 
-        return $queryBuilder->getQuery()->getResult();
+        return $queryBuilder->orderBy('p.id', 'DESC')->getQuery()->getResult();
     }
 
     public function getTotal()

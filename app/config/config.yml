@@ -39,10 +39,11 @@ framework:
 
 twig:
     debug: '%kernel.debug%'
-    strict_variables: '%kernel.debug%'
+    strict_variables: false
     form_themes:
         - "form/image-input-filed-type.html.twig"
         - "form/tiny-html-textarea-field-type.html.twig"
+        - "form/datetime-range-field-type.html.twig"
         - "bootstrap_3_layout.html.twig"
 
 doctrine:
@@ -70,7 +71,7 @@ swiftmailer:
     password: '%mailer_password%'
     port: '587'
     encryption: 'tls'
-    spool: { type: memory }
+    spool: { type: service, id: snc_redis.swiftmailer.spool }
 
 sensio_framework_extra:
    router:
@@ -101,12 +102,22 @@ snc_redis:
             client: cache
             entity_manager: default
             document_manager: default
+            namespace: "vmoex:"
         result_cache:
             client: cache
             entity_manager: default
+            namespace: "vmoex:"
         query_cache:
             client: cache
             entity_manager: default
+            namespace: "vmoex:"
         second_level_cache:
             client: cache
             entity_manager: default
+            namespace: "vmoex:"
+    swiftmailer:
+        client: default
+        key: swiftmailer
+    profiler_storage:
+        client: default
+        ttl: 3600

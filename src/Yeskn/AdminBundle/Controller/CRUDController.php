@@ -23,7 +23,6 @@ use Yeskn\AdminBundle\QueryBuilder\BuilderFactory;
 use Yeskn\MainBundle\Entity\User;
 use Yeskn\Support\Http\ApiOk;
 use Yeskn\Support\Http\Session\Flash;
-use Yeskn\Support\ParameterBag;
 
 class CRUDController extends Controller
 {
@@ -41,7 +40,7 @@ class CRUDController extends Controller
     {
         $pageSize = $request->query->get('pageSize', 20);
         $pageNo = $request->query->get('pageNo', 1);
-        $search = $request->query->get('search_' . $entity, []);
+
         $queryParams = [
             'pageNo' => $pageNo,
             'pageSize' => $pageSize
@@ -56,13 +55,14 @@ class CRUDController extends Controller
         $searchClass = "Yeskn\AdminBundle\Form\SearchForm\Search{$entity}Type";
 
         if (class_exists($searchClass)) {
-            $searchForm = $this->createForm($searchClass, new ParameterBag($search));
+            $searchForm = $this->createForm($searchClass);
+            $searchForm->handleRequest($request);
 
             $allowedKeys = array_keys($searchForm->all());
 
-            foreach ($search as $key => $value) {
+            foreach ($allowedKeys as $key) {
                 if (in_array($key, $allowedKeys)) {
-                    $queryParams[$key] = $value;
+                    $queryParams[$key] = $searchForm->get($key)->getNormData();
                 }
             }
         }
@@ -77,23 +77,27 @@ class CRUDController extends Controller
 
         $data = $this->startEntitiesRenderEvent($entity, $list);
 
-        $createForm = $this->createForm($typeClass, new $entityClass);
+        if (class_exists($typeClass)) {
+            $createForm = $this->createForm($typeClass, new $entityClass);
+        }
 
-        return $this->render('@YesknAdmin/crud/list.html.twig', [
+        $params = [
             'entity' => lcfirst($entity),
-            'entitySubTitle' => empty($data['entitySubTitle']) ? '' : $data['entitySubTitle'],
+            'entitySubTitle' => '',
             'columns' => $data['columns'],
-            'column_width' => empty($data['column_width']) ? [] : $data['column_width'],
-            'create_btn' => empty($data['create_btn']) ? '' : $data['create_btn'],
-            'edit_btn' => empty($data['edit_btn']) ? '' : $data['edit_btn'],
-            'list' => $data['list'],
-            'ids' => $data['ids'],
+            'column_width' => [],
+            'create_btn' => '',
+            'edit_btn' => '',
             'entityName' => $entityClass::NAME,
-            'form' => $createForm->createView(),
-            'extra' => empty($data['extra']) ? [] : $data['extra'],
+            'form' => !empty($createForm) ? $createForm->createView() : null,
+            'extra' => [],
             'allPage' => ceil($total / $pageSize),
             'searchForm' => !empty($searchForm) ? $searchForm->createView() : null,
-        ]);
+        ];
+
+        $params = array_merge($params, $data);
+
+        return $this->render('@YesknAdmin/crud/list.html.twig', $params);
     }
 
     /**

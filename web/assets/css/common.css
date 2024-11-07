@@ -1,11 +1,12 @@
 body {
     cursor: url('/pointer.cur'), url('/pointer.cur'), auto;
-    background: #f6f6f6;
     font-family: -apple-system,BlinkMacSystemFont,Helvetica Neue,PingFang SC,Microsoft YaHei,Source Han Sans SC,Noto Sans CJK SC,WenQuanYi Micro Hei,sans-serif;
     -webkit-font-smoothing:antialiased;
     -moz-osx-font-smoothing:grayscale;
     -moz-font-feature-settings:"liga","kern";
     text-rendering:optimizelegibility;
+    background-image: url("/assets/images/bg.jpg");
+    background-attachment:fixed;
 }
 .modal-open-noscroll {
     padding-right: 0 !important;
@@ -420,6 +421,13 @@ li.messages ul li div a {
 .comment-box #editor-comment p {
     margin: 0;
 }
+.comment-box .color-dots div {
+    cursor: pointer;
+    margin:5px;
+    border-radius:4px;
+    width: 15px;
+    height: 15px;
+}
 .my-messages ul.messages {
     list-style-type: none;
     padding-left: 0;
@@ -595,6 +603,11 @@ nav .dropdown-messages, nav .dropdown-notifications {
         padding-left: 0;
     }
 }
+
+#sidebar .panel-heading {
+    background: none;
+}
+
 .content .topic-header > h2 {
     text-align: left;
     font-weight: normal;
@@ -809,8 +822,6 @@ ul.pagination {
     background-color: #80bd01;
     border-color: #80bd01;
 }
-
-/** sidebar --------------------- **/
 
 .hot-topic-list {
     padding-left: 0;
